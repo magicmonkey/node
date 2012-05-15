@@ -23,6 +23,7 @@
       'lib/cluster.js',
       'lib/dgram.js',
       'lib/dns.js',
+      'lib/domain.js',
       'lib/events.js',
       'lib/freelist.js',
       'lib/fs.js',
@@ -106,6 +107,7 @@
         'src/node_script.h',
         'src/node_string.h',
         'src/node_version.h',
+        'src/ngx-queue.h',
         'src/pipe_wrap.h',
         'src/req_wrap.h',
         'src/slab_allocator.h',
@@ -309,7 +311,7 @@
       'target_name': 'node_dtrace_ustack',
       'type': 'none',
       'conditions': [
-        [ 'node_use_dtrace=="true"', {
+        [ 'node_use_dtrace=="true" and target_arch=="ia32"', {
           'actions': [
             {
               'action_name': 'node_dtrace_ustack_constants',
