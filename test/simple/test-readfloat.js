@@ -1,13 +1,36 @@
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 /*
  * Tests to verify we're reading in floats correctly
  */
+var SlowBuffer = process.binding('buffer').SlowBuffer;
+var common = require('../common');
 var ASSERT = require('assert');
 
 /*
  * Test (32 bit) float
  */
-function test() {
-  var buffer = new Buffer(4);
+function test(clazz) {
+  var buffer = new clazz(4);
 
   buffer[0] = 0;
   buffer[1] = 0;
@@ -43,12 +66,12 @@ function test() {
   buffer[3] = 0;
   ASSERT.equal(0, buffer.readFloatBE(0));
   ASSERT.equal(0, buffer.readFloatLE(0));
-  ASSERT.equal(false, 1/buffer.readFloatLE(0)<0);
+  ASSERT.equal(false, 1 / buffer.readFloatLE(0) < 0);
 
   buffer[3] = 0x80;
   ASSERT.equal(1.793662034335766e-43, buffer.readFloatBE(0));
   ASSERT.equal(0, buffer.readFloatLE(0));
-  ASSERT.equal(true, 1/buffer.readFloatLE(0)<0);
+  ASSERT.equal(true, 1 / buffer.readFloatLE(0) < 0);
 
   buffer[0] = 0;
   buffer[1] = 0;
@@ -66,4 +89,5 @@ function test() {
 }
 
 
-test();
+test(Buffer);
+test(SlowBuffer);

@@ -43,8 +43,23 @@ child.exec(nodejs + ' --eval 42',
 // assert that "42\n" is written to stderr
 child.exec(nodejs + ' --eval "console.error(42)"',
     function(err, stdout, stderr) {
-      assert.equal(stderr, "42\n");
+      assert.equal(stderr, '42\n');
     });
+
+// assert that the expected output is written to stdout
+['--print --eval', '-p -e', '-pe'].forEach(function(s) {
+  var cmd = nodejs + ' ' + s + ' ';
+
+  child.exec(cmd + '42',
+      function(err, stdout, stderr) {
+        assert.equal(stdout, '42\n');
+      });
+
+  child.exec(cmd + "'[]'",
+      function(err, stdout, stderr) {
+        assert.equal(stdout, '[]\n');
+      });
+});
 
 // assert that module loading works
 child.exec(nodejs + ' --eval "require(\'' + filename + '\')"',

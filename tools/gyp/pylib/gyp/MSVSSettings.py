@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# Copyright (c) 2011 The Chromium Authors. All rights reserved.
+# Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -482,7 +481,7 @@ _link = _Tool('VCLinkerTool', 'Link')
 _midl = _Tool('VCMIDLTool', 'Midl')
 _rc = _Tool('VCResourceCompilerTool', 'ResourceCompile')
 _lib = _Tool('VCLibrarianTool', 'Lib')
-_manifest = _Tool('VCManifestTool', 'Mt')
+_manifest = _Tool('VCManifestTool', 'Manifest')
 
 
 _AddTool(_compile)
@@ -966,6 +965,7 @@ _Same(_lib, 'ModuleDefinitionFile', _file_name)  # /DEF
 _Same(_lib, 'OutputFile', _file_name)  # /OUT
 _Same(_lib, 'SuppressStartupBanner', _boolean)  # /NOLOGO
 _Same(_lib, 'UseUnicodeResponseFiles', _boolean)
+_Same(_lib, 'LinkTimeCodeGeneration', _boolean)  # /LTCG
 
 # TODO(jeanluc) _link defines the same value that gets moved to
 # ProjectReference.  We may want to validate that they are consistent.
@@ -980,7 +980,6 @@ _MSBuildOnly(_lib, 'ErrorReporting',
                                    'QueueForNextLogin',  # /ERRORREPORT:QUEUE
                                    'SendErrorReport',  # /ERRORREPORT:SEND
                                    'NoErrorReport']))  # /ERRORREPORT:NONE
-_MSBuildOnly(_lib, 'LinkTimeCodeGeneration', _boolean)  # /LTCG
 _MSBuildOnly(_lib, 'MinimumRequiredVersion', _string)
 _MSBuildOnly(_lib, 'Name', _file_name)  # /NAME
 _MSBuildOnly(_lib, 'RemoveObjects', _file_list)  # /REMOVE

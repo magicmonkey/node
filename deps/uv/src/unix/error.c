@@ -56,55 +56,50 @@ void uv_fatal_error(const int errorno, const char* syscall) {
 }
 
 
-uv_err_t uv_last_error(uv_loop_t* loop) {
-  return loop->last_err;
-}
-
-
-char* uv_strerror(uv_err_t err) {
-  return strerror(err.sys_errno_);
-}
-
-
 uv_err_code uv_translate_sys_error(int sys_errno) {
   switch (sys_errno) {
     case 0: return UV_OK;
+    case EIO: return UV_EIO;
+    case EPERM: return UV_EPERM;
+    case ENOSYS: return UV_ENOSYS;
+    case ENOTSOCK: return UV_ENOTSOCK;
     case ENOENT: return UV_ENOENT;
-    case EACCES: return UV_EACCESS;
+    case EACCES: return UV_EACCES;
+    case EAFNOSUPPORT: return UV_EAFNOSUPPORT;
     case EBADF: return UV_EBADF;
     case EPIPE: return UV_EPIPE;
     case EAGAIN: return UV_EAGAIN;
+#if EWOULDBLOCK != EAGAIN
+    case EWOULDBLOCK: return UV_EAGAIN;
+#endif
     case ECONNRESET: return UV_ECONNRESET;
     case EFAULT: return UV_EFAULT;
     case EMFILE: return UV_EMFILE;
     case EMSGSIZE: return UV_EMSGSIZE;
+    case ENAMETOOLONG: return UV_ENAMETOOLONG;
     case EINVAL: return UV_EINVAL;
+    case ENETUNREACH: return UV_ENETUNREACH;
+    case ECONNABORTED: return UV_ECONNABORTED;
+    case ELOOP: return UV_ELOOP;
     case ECONNREFUSED: return UV_ECONNREFUSED;
     case EADDRINUSE: return UV_EADDRINUSE;
     case EADDRNOTAVAIL: return UV_EADDRNOTAVAIL;
+    case ENOTDIR: return UV_ENOTDIR;
+    case EISDIR: return UV_EISDIR;
+    case ENODEV: return UV_ENODEV;
     case ENOTCONN: return UV_ENOTCONN;
     case EEXIST: return UV_EEXIST;
+    case EHOSTUNREACH: return UV_EHOSTUNREACH;
+    case EAI_NONAME: return UV_ENOENT;
+    case ESRCH: return UV_ESRCH;
+    case ETIMEDOUT: return UV_ETIMEDOUT;
+    case EXDEV: return UV_EXDEV;
+    case EBUSY: return UV_EBUSY;
+    case ENOTEMPTY: return UV_ENOTEMPTY;
+    case ENOSPC: return UV_ENOSPC;
+    case EROFS: return UV_EROFS;
+    case ENOMEM: return UV_ENOMEM;
     default: return UV_UNKNOWN;
   }
-
-  assert(0 && "unreachable");
-  return -1;
-}
-
-
-uv_err_t uv_err_new_artificial(uv_loop_t* loop, int code) {
-  uv_err_t err;
-  err.sys_errno_ = 0;
-  err.code = code;
-  loop->last_err = err;
-  return err;
-}
-
-
-uv_err_t uv_err_new(uv_loop_t* loop, int sys_error) {
-  uv_err_t err;
-  err.sys_errno_ = sys_error;
-  err.code = uv_translate_sys_error(sys_error);
-  loop->last_err = err;
-  return err;
+  UNREACHABLE();
 }

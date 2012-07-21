@@ -28,11 +28,6 @@
 /*
  * Ntdll headers
  */
-#ifndef _NTDEF_
-  typedef LONG NTSTATUS;
-  typedef NTSTATUS *PNTSTATUS;
-#endif
-
 #ifndef STATUS_SEVERITY_SUCCESS
 # define STATUS_SEVERITY_SUCCESS 0x0
 #endif
@@ -4079,8 +4074,8 @@
         (FACILITY_NTWIN32 << 16) | ERROR_SEVERITY_WARNING)))
 
 /* from ntifs.h */
-/* MinGW already has it */
-#ifndef __MINGW32__
+/* MinGW already has it, mingw-w64 does not. */
+#if defined(_MSC_VER) || defined(__MINGW64_VERSION_MAJOR)
   typedef struct _REPARSE_DATA_BUFFER {
     ULONG  ReparseTag;
     USHORT ReparseDataLength;
@@ -4136,6 +4131,17 @@ typedef struct _FILE_BASIC_INFORMATION {
   LARGE_INTEGER ChangeTime;
   DWORD FileAttributes;
 } FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;
+
+typedef struct _FILE_MODE_INFORMATION {
+  ULONG Mode;
+} FILE_MODE_INFORMATION, *PFILE_MODE_INFORMATION;
+
+typedef struct _FILE_END_OF_FILE_INFORMATION {
+  LARGE_INTEGER  EndOfFile;
+} FILE_END_OF_FILE_INFORMATION, *PFILE_END_OF_FILE_INFORMATION;
+
+#define FILE_SYNCHRONOUS_IO_ALERT               0x00000010
+#define FILE_SYNCHRONOUS_IO_NONALERT            0x00000020
 
 typedef enum _FILE_INFORMATION_CLASS {
   FileDirectoryInformation = 1,
@@ -4196,12 +4202,29 @@ typedef enum _FILE_INFORMATION_CLASS {
   FileMaximumInformation
 } FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 
+typedef struct _SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION {
+    LARGE_INTEGER IdleTime;
+    LARGE_INTEGER KernelTime;
+    LARGE_INTEGER UserTime;
+    LARGE_INTEGER DpcTime;
+    LARGE_INTEGER InterruptTime;
+    ULONG InterruptCount;
+} SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION, *PSYSTEM_PROCESSOR_PERFORMANCE_INFORMATION;
+
+#ifndef SystemProcessorPerformanceInformation
+# define SystemProcessorPerformanceInformation 8
+#endif
+
 #ifndef DEVICE_TYPE
 # define DEVICE_TYPE DWORD
 #endif
 
 #ifndef FILE_DEVICE_FILE_SYSTEM
 # define FILE_DEVICE_FILE_SYSTEM 0x00000009
+#endif
+
+#ifndef FILE_DEVICE_NETWORK
+# define FILE_DEVICE_NETWORK 0x00000012
 #endif
 
 #ifndef METHOD_BUFFERED
@@ -4270,8 +4293,29 @@ typedef enum _FILE_INFORMATION_CLASS {
                                              FILE_SPECIAL_ACCESS)
 #endif
 
+#ifndef IO_REPARSE_TAG_SYMLINK
+# define IO_REPARSE_TAG_SYMLINK (0xA000000CL)
+#endif
+
+typedef VOID (NTAPI *PIO_APC_ROUTINE)
+             (PVOID ApcContext,
+              PIO_STATUS_BLOCK IoStatusBlock,
+              ULONG Reserved);
+
 typedef ULONG (NTAPI *sRtlNtStatusToDosError)
               (NTSTATUS Status);
+
+typedef NTSTATUS (NTAPI *sNtDeviceIoControlFile)
+                 (HANDLE FileHandle,
+                  HANDLE Event,
+                  PIO_APC_ROUTINE ApcRoutine,
+                  PVOID ApcContext,
+                  PIO_STATUS_BLOCK IoStatusBlock,
+                  ULONG IoControlCode,
+                  PVOID InputBuffer,
+                  ULONG InputBufferLength,
+                  PVOID OutputBuffer,
+                  ULONG OutputBufferLength);
 
 typedef NTSTATUS (NTAPI *sNtQueryInformationFile)
                  (HANDLE FileHandle,
@@ -4287,22 +4331,48 @@ typedef NTSTATUS (NTAPI *sNtSetInformationFile)
                   ULONG Length,
                   FILE_INFORMATION_CLASS FileInformationClass);
 
+typedef NTSTATUS (NTAPI *sNtQuerySystemInformation)
+                 (UINT SystemInformationClass,
+                  PVOID SystemInformation,
+                  ULONG SystemInformationLength,
+                  PULONG ReturnLength);
+
 
 /*
  * Kernel32 headers
  */
-#define FILE_SKIP_COMPLETION_PORT_ON_SUCCESS    0x1
-#define FILE_SKIP_SET_EVENT_ON_HANDLE           0x2
+#ifndef FILE_SKIP_COMPLETION_PORT_ON_SUCCESS
+# define FILE_SKIP_COMPLETION_PORT_ON_SUCCESS 0x1
+#endif
 
-#define SYMBOLIC_LINK_FLAG_DIRECTORY            0x1
+#ifndef FILE_SKIP_SET_EVENT_ON_HANDLE
+# define FILE_SKIP_SET_EVENT_ON_HANDLE 0x2
+#endif
 
-#ifdef __MINGW32__
+#ifndef SYMBOLIC_LINK_FLAG_DIRECTORY
+# define SYMBOLIC_LINK_FLAG_DIRECTORY 0x1
+#endif
+
+#if defined(__MINGW32__) && !defined(__MINGW64_VERSION_MAJOR)
   typedef struct _OVERLAPPED_ENTRY {
       ULONG_PTR lpCompletionKey;
       LPOVERLAPPED lpOverlapped;
       ULONG_PTR Internal;
       DWORD dwNumberOfBytesTransferred;
   } OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
+#endif
+
+/* from wincon.h */
+#ifndef ENABLE_INSERT_MODE
+# define ENABLE_INSERT_MODE 0x20
+#endif
+
+#ifndef ENABLE_QUICK_EDIT_MODE
+# define ENABLE_QUICK_EDIT_MODE 0x40
+#endif
+
+#ifndef ENABLE_EXTENDED_FLAGS
+# define ENABLE_EXTENDED_FLAGS 0x80
 #endif
 
 typedef BOOL (WINAPI *sGetQueuedCompletionStatusEx)
@@ -4317,21 +4387,57 @@ typedef BOOL (WINAPI* sSetFileCompletionNotificationModes)
              (HANDLE FileHandle,
               UCHAR Flags);
 
-typedef BOOLEAN (WINAPI* sCreateSymbolicLinkA)
-                (LPCSTR lpSymlinkFileName,
-                 LPCSTR lpTargetFileName,
+typedef BOOLEAN (WINAPI* sCreateSymbolicLinkW)
+                (LPCWSTR lpSymlinkFileName,
+                 LPCWSTR lpTargetFileName,
                  DWORD dwFlags);
 
+typedef BOOL (WINAPI* sCancelIoEx)
+             (HANDLE hFile,
+              LPOVERLAPPED lpOverlapped);
 
-/* Ntapi function pointers */
+typedef VOID (WINAPI* sInitializeSRWLock)
+             (PSRWLOCK SRWLock);
+
+typedef VOID (WINAPI* sAcquireSRWLockShared)
+             (PSRWLOCK SRWLock);
+
+typedef VOID (WINAPI* sAcquireSRWLockExclusive)
+             (PSRWLOCK SRWLock);
+
+typedef BOOL (WINAPI* sTryAcquireSRWLockShared)
+             (PSRWLOCK SRWLock);
+
+typedef BOOL (WINAPI* sTryAcquireSRWLockExclusive)
+             (PSRWLOCK SRWLock);
+
+typedef VOID (WINAPI* sReleaseSRWLockShared)
+             (PSRWLOCK SRWLock);
+
+typedef VOID (WINAPI* sReleaseSRWLockExclusive)
+             (PSRWLOCK SRWLock);
+
+
+
+/* Ntdll function pointers */
 extern sRtlNtStatusToDosError pRtlNtStatusToDosError;
+extern sNtDeviceIoControlFile pNtDeviceIoControlFile;
 extern sNtQueryInformationFile pNtQueryInformationFile;
 extern sNtSetInformationFile pNtSetInformationFile;
+extern sNtQuerySystemInformation pNtQuerySystemInformation;
 
 
 /* Kernel32 function pointers */
 extern sGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 extern sSetFileCompletionNotificationModes pSetFileCompletionNotificationModes;
-extern sCreateSymbolicLinkA pCreateSymbolicLinkA;
+extern sCreateSymbolicLinkW pCreateSymbolicLinkW;
+extern sCancelIoEx pCancelIoEx;
+extern sInitializeSRWLock pInitializeSRWLock;
+extern sAcquireSRWLockShared pAcquireSRWLockShared;
+extern sAcquireSRWLockExclusive pAcquireSRWLockExclusive;
+extern sTryAcquireSRWLockShared pTryAcquireSRWLockShared;
+extern sTryAcquireSRWLockExclusive pTryAcquireSRWLockExclusive;
+extern sReleaseSRWLockShared pReleaseSRWLockShared;
+extern sReleaseSRWLockExclusive pReleaseSRWLockExclusive;
 
 #endif /* UV_WIN_WINAPI_H_ */

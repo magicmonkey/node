@@ -34,6 +34,7 @@ static uv_loop_t* loop;
 static int server_closed;
 static stream_type serverType;
 static uv_tcp_t tcpServer;
+static uv_udp_t udpServer;
 static uv_pipe_t pipeServer;
 static uv_handle_t* server;
 
@@ -151,7 +152,7 @@ static void on_connection(uv_stream_t* server, int status) {
   case PIPE:
     stream = malloc(sizeof(uv_pipe_t));
     ASSERT(stream != NULL);
-    r = uv_pipe_init(loop, (uv_pipe_t*)stream);
+    r = uv_pipe_init(loop, (uv_pipe_t*)stream, 0);
     ASSERT(r == 0);
     break;
 
@@ -173,6 +174,34 @@ static void on_connection(uv_stream_t* server, int status) {
 
 static void on_server_close(uv_handle_t* handle) {
   ASSERT(handle == server);
+}
+
+
+static void on_send(uv_udp_send_t* req, int status);
+
+
+static void on_recv(uv_udp_t* handle,
+                    ssize_t nread,
+                    uv_buf_t buf,
+                    struct sockaddr* addr,
+                    unsigned flags) {
+  uv_udp_send_t* req;
+  int r;
+
+  ASSERT(nread > 0);
+  ASSERT(addr->sa_family == AF_INET);
+
+  req = malloc(sizeof(*req));
+  ASSERT(req != NULL);
+
+  r = uv_udp_send(req, handle, &buf, 1, *(struct sockaddr_in*)addr, on_send);
+  ASSERT(r == 0);
+}
+
+
+static void on_send(uv_udp_send_t* req, int status) {
+  ASSERT(status == 0);
+  free(req);
 }
 
 
@@ -242,13 +271,45 @@ static int tcp6_echo_start(int port) {
 }
 
 
+static int udp4_echo_start(int port) {
+  int r;
+
+  server = (uv_handle_t*)&udpServer;
+  serverType = UDP;
+
+  r = uv_udp_init(loop, &udpServer);
+  if (r) {
+    fprintf(stderr, "uv_udp_init: %s\n",
+        uv_strerror(uv_last_error(loop)));
+    return 1;
+  }
+
+  r = uv_udp_recv_start(&udpServer, echo_alloc, on_recv);
+  if (r) {
+    fprintf(stderr, "uv_udp_recv_start: %s\n",
+        uv_strerror(uv_last_error(loop)));
+    return 1;
+  }
+
+  return 0;
+}
+
+
 static int pipe_echo_start(char* pipeName) {
   int r;
+
+#ifndef _WIN32
+  {
+    uv_fs_t req;
+    uv_fs_unlink(uv_default_loop(), &req, pipeName, NULL);
+    uv_fs_req_cleanup(&req);
+  }
+#endif
 
   server = (uv_handle_t*)&pipeServer;
   serverType = PIPE;
 
-  r = uv_pipe_init(loop, &pipeServer);
+  r = uv_pipe_init(loop, &pipeServer, 0);
   if (r) {
     fprintf(stderr, "uv_pipe_init: %s\n",
         uv_strerror(uv_last_error(loop)));
@@ -299,6 +360,17 @@ HELPER_IMPL(pipe_echo_server) {
   loop = uv_default_loop();
 
   if (pipe_echo_start(TEST_PIPENAME))
+    return 1;
+
+  uv_run(loop);
+  return 0;
+}
+
+
+HELPER_IMPL(udp4_echo_server) {
+  loop = uv_default_loop();
+
+  if (udp4_echo_start(TEST_PORT))
     return 1;
 
   uv_run(loop);

@@ -19,7 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
+
 
 
 var common = require('../common');
@@ -35,14 +35,35 @@ var after = util.inspect(d);
 assert.equal(orig, after);
 
 // test for sparse array
-var a = [ 'foo', 'bar', 'baz' ];
-assert.equal(util.inspect(a), "[ 'foo', 'bar', 'baz' ]");
+var a = ['foo', 'bar', 'baz'];
+assert.equal(util.inspect(a), '[ \'foo\', \'bar\', \'baz\' ]');
 delete a[1];
-assert.equal(util.inspect(a), "[ 'foo', , 'baz' ]");
-assert.equal(util.inspect(a, true), "[ 'foo', , 'baz', [length]: 3 ]");
+assert.equal(util.inspect(a), '[ \'foo\', , \'baz\' ]');
+assert.equal(util.inspect(a, true), '[ \'foo\', , \'baz\', [length]: 3 ]');
 assert.equal(util.inspect(new Array(5)), '[ , , , ,  ]');
 
-// exceptions should print the error message, not "{}"
+// test for property descriptors
+var getter = Object.create(null, {
+  a: {
+    get: function() { return 'aaa'; }
+  }
+});
+var setter = Object.create(null, {
+  b: {
+    set: function() {}
+  }
+});
+var getterAndSetter = Object.create(null, {
+  c: {
+    get: function() { return 'ccc'; },
+    set: function() {}
+  }
+});
+assert.equal(util.inspect(getter, true), '{ [a]: [Getter] }');
+assert.equal(util.inspect(setter, true), '{ [b]: [Setter] }');
+assert.equal(util.inspect(getterAndSetter, true), '{ [c]: [Getter/Setter] }');
+
+// exceptions should print the error message, not '{}'
 assert.equal(util.inspect(new Error()), '[Error]');
 assert.equal(util.inspect(new Error('FAIL')), '[Error: FAIL]');
 assert.equal(util.inspect(new TypeError('FAIL')), '[TypeError: FAIL]');
@@ -53,9 +74,59 @@ try {
   assert.equal(util.inspect(e), '[ReferenceError: undef is not defined]');
 }
 var ex = util.inspect(new Error('FAIL'), true);
-console.log(ex);
-assert.ok(ex.indexOf("[Error: FAIL]") != -1);
-assert.ok(ex.indexOf("[stack]") != -1);
-assert.ok(ex.indexOf("[message]") != -1);
-assert.ok(ex.indexOf("[arguments]") != -1);
-assert.ok(ex.indexOf("[type]") != -1);
+assert.ok(ex.indexOf('[Error: FAIL]') != -1);
+assert.ok(ex.indexOf('[stack]') != -1);
+assert.ok(ex.indexOf('[message]') != -1);
+assert.ok(ex.indexOf('[arguments]') != -1);
+assert.ok(ex.indexOf('[type]') != -1);
+
+// GH-1941
+// should not throw:
+assert.equal(util.inspect(Object.create(Date.prototype)), '{}');
+
+// GH-1944
+assert.doesNotThrow(function() {
+  var d = new Date();
+  d.toUTCString = null;
+  util.inspect(d);
+});
+
+assert.doesNotThrow(function() {
+  var r = /regexp/;
+  r.toString = null;
+  util.inspect(r);
+});
+
+// bug with user-supplied inspect function returns non-string
+assert.doesNotThrow(function() {
+  util.inspect([{
+    inspect: function() { return 123; }
+  }]);
+});
+
+// GH-2225
+var x = { inspect: util.inspect };
+assert.ok(util.inspect(x).indexOf('inspect') != -1);
+
+// util.inspect.styles and util.inspect.colors
+function test_color_style(style, input, implicit) {
+  var color_name = util.inspect.styles[style];
+  var color = ['', ''];
+  if(util.inspect.colors[color_name])
+    color = util.inspect.colors[color_name];
+
+  var without_color = util.inspect(input, false, 0, false);
+  var with_color = util.inspect(input, false, 0, true);
+  var expect = '\u001b[' + color[0] + 'm' + without_color +
+               '\u001b[' + color[1] + 'm';
+  assert.equal(with_color, expect, 'util.inspect color for style '+style);
+}
+
+test_color_style('special', function(){});
+test_color_style('number', 123.456);
+test_color_style('boolean', true);
+test_color_style('undefined', undefined);
+test_color_style('null', null);
+test_color_style('string', 'test string');
+test_color_style('date', new Date);
+test_color_style('regexp', /regexp/);

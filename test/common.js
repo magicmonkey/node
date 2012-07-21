@@ -28,7 +28,7 @@ exports.libDir = path.join(exports.testDir, '../lib');
 exports.tmpDir = path.join(exports.testDir, 'tmp');
 exports.PORT = 12346;
 
-if (process.platform == 'win32') {
+if (process.platform === 'win32') {
   exports.PIPE = '\\\\.\\pipe\\libuv-test';
 } else {
   exports.PIPE = exports.tmpDir + '/test.sock';
@@ -53,13 +53,10 @@ exports.indirectInstanceOf = function(obj, cls) {
 
 
 exports.ddCommand = function(filename, kilobytes) {
-  if (process.platform == 'win32') {
-    // 'fsutil file createnew' cannot be used on an existing file. If it
-    // already exists delete it.
-    if (require('path').existsSync(filename)) {
-      require('fs').unlinkSync(filename);
-    }
-    return 'fsutil.exe file createnew "' + filename + '" ' + (kilobytes * 1024);
+  if (process.platform === 'win32') {
+    var p = path.resolve(exports.fixturesDir, 'create-file.js');
+    return '"' + process.argv[0] + '" "' + p + '" "' +
+           filename + '" ' + (kilobytes * 1024);
   } else {
     return 'dd if=/dev/zero of="' + filename + '" bs=1024 count=' + kilobytes;
   }
@@ -69,7 +66,7 @@ exports.ddCommand = function(filename, kilobytes) {
 exports.spawnPwd = function(options) {
   var spawn = require('child_process').spawn;
 
-  if (process.platform == "win32") {
+  if (process.platform === 'win32') {
     return spawn('cmd.exe', ['/c', 'cd'], options);
   } else {
     return spawn('pwd', [], options);
@@ -114,6 +111,7 @@ process.on('exit', function() {
     knownGlobals.push(ArrayBuffer);
     knownGlobals.push(Int8Array);
     knownGlobals.push(Uint8Array);
+    knownGlobals.push(Uint8ClampedArray);
     knownGlobals.push(Int16Array);
     knownGlobals.push(Uint16Array);
     knownGlobals.push(Int32Array);
@@ -135,7 +133,7 @@ process.on('exit', function() {
 
     if (!found) {
       console.error('Unknown global: %s', x);
-      assert.ok(false, 'Unknown global founded');
+      assert.ok(false, 'Unknown global found');
     }
   }
 });

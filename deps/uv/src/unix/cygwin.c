@@ -19,19 +19,28 @@
  */
 
 #include "uv.h"
+#include "../uv-common.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <errno.h>
+#include <unistd.h>
 #include <time.h>
 
 #undef NANOSEC
-#define NANOSEC 1000000000
+#define NANOSEC ((uint64_t) 1e9)
 
 
 uint64_t uv_hrtime() {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (ts.tv_sec * NANOSEC + ts.tv_nsec);
+}
+
+void uv_loadavg(double avg[3]) {
+  /* Unsupported as of cygwin 1.7.7 */
+  avg[0] = avg[1] = avg[2] = 0;
 }
 
 
@@ -49,4 +58,27 @@ int uv_exepath(char* buffer, size_t* size) {
   if (*size <= 0) return -1;
   buffer[*size] = '\0';
   return 0;
+}
+
+uint64_t uv_get_free_memory(void) {
+  return (uint64_t) sysconf(_SC_PAGESIZE) * sysconf(_SC_AVPHYS_PAGES);
+}
+
+uint64_t uv_get_total_memory(void) {
+  return (uint64_t) sysconf(_SC_PAGESIZE) * sysconf(_SC_PHYS_PAGES);
+}
+
+int uv_fs_event_init(uv_loop_t* loop,
+                     uv_fs_event_t* handle,
+                     const char* filename,
+                     uv_fs_event_cb cb,
+                     int flags) {
+  loop->counters.fs_event_init++;
+  uv__set_sys_error(loop, ENOSYS);
+  return -1;
+}
+
+
+void uv__fs_event_close(uv_fs_event_t* handle) {
+  assert(0 && "implement me");
 }

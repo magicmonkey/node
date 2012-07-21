@@ -1,4 +1,5 @@
-
+core
+vgcore.*
 .waf*
 tags
 .lock-wscript
@@ -17,7 +18,9 @@ node_g
 # various stuff that VC++ produces/uses
 Debug/
 Release/
+!doc/blog/**
 *.sln
+!nodemsi.sln
 *.suo
 *.vcproj
 *.vcxproj
@@ -29,6 +32,14 @@ ipch/
 *.sdf
 *.opensdf
 
-/options.gypi
+/config.mk
+/config.gypi
 *-nodegyp*
 /gyp-mac-tool
+/dist-osx
+/npm.wxs
+/tools/msvs/npm.wixobj
+email.md
+deps/v8-*
+./node_modules
+.svn/

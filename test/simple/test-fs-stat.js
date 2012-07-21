@@ -19,9 +19,6 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
-
-
 var common = require('../common');
 var assert = require('assert');
 var fs = require('fs');
@@ -36,6 +33,7 @@ fs.stat('.', function(err, stats) {
     assert.ok(stats.mtime instanceof Date);
     success_count++;
   }
+  assert(this === global);
 });
 
 fs.lstat('.', function(err, stats) {
@@ -46,6 +44,7 @@ fs.lstat('.', function(err, stats) {
     assert.ok(stats.mtime instanceof Date);
     success_count++;
   }
+  assert(this === global);
 });
 
 // fstat
@@ -62,7 +61,10 @@ fs.open('.', 'r', undefined, function(err, fd) {
       success_count++;
       fs.close(fd);
     }
+    assert(this === global);
   });
+
+  assert(this === global);
 });
 
 // fstatSync
@@ -114,7 +116,7 @@ fs.stat(__filename, function(err, s) {
   }
 });
 
-process.addListener('exit', function() {
+process.on('exit', function() {
   assert.equal(5, success_count);
   assert.equal(false, got_error);
 });

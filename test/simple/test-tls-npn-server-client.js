@@ -20,8 +20,8 @@
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 if (!process.features.tls_npn) {
-  console.error("Skipping because node compiled without OpenSSL or " +
-                "with old OpenSSL version.");
+  console.error('Skipping because node compiled without OpenSSL or ' +
+                'with old OpenSSL version.');
   process.exit(0);
 }
 
@@ -31,7 +31,7 @@ var common = require('../common'),
     tls = require('tls');
 
 function filenamePEM(n) {
-  return require('path').join(common.fixturesDir, 'keys', n + ".pem");
+  return require('path').join(common.fixturesDir, 'keys', n + '.pem');
 }
 
 function loadPEM(n) {
@@ -45,24 +45,27 @@ var serverOptions = {
   NPNProtocols: ['a', 'b', 'c']
 };
 
+var serverPort = common.PORT;
+
 var clientsOptions = [{
+  port: serverPort,
   key: serverOptions.key,
   cert: serverOptions.cert,
   crl: serverOptions.crl,
   NPNProtocols: ['a', 'b', 'c']
 },{
+  port: serverPort,
   key: serverOptions.key,
   cert: serverOptions.cert,
   crl: serverOptions.crl,
   NPNProtocols: ['c', 'b', 'e']
 },{
+  port: serverPort,
   key: serverOptions.key,
   cert: serverOptions.cert,
   crl: serverOptions.crl,
   NPNProtocols: ['first-priority-unsupported', 'x', 'y']
 }];
-
-var serverPort = common.PORT;
 
 var serverResults = [],
     clientsResults = [];
@@ -74,7 +77,7 @@ server.listen(serverPort, startTest);
 
 function startTest() {
   function connectClient(options, callback) {
-    var client = tls.connect(serverPort, 'localhost', options, function() {
+    var client = tls.connect(options, function() {
       clientsResults.push(client.npnProtocol);
       client.destroy();
 
@@ -89,7 +92,7 @@ function startTest() {
       });
     });
   });
-};
+}
 
 process.on('exit', function() {
   assert.equal(serverResults[0], clientsResults[0]);

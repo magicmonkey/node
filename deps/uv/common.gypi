@@ -24,7 +24,7 @@
               }],
             ],
             'Optimization': 0, # /Od, no optimization
-            'MinimalRebuild': 'true',
+            'MinimalRebuild': 'false',
             'OmitFramePointers': 'false',
             'BasicRuntimeChecks': 3, # /RTC1
           },
@@ -32,6 +32,14 @@
             'LinkIncremental': 2, # enable incremental linking
           },
         },
+        'xcode_settings': {
+          'GCC_OPTIMIZATION_LEVEL': '0',
+        },
+        'conditions': [
+          ['OS != "win"', {
+            'defines': [ 'EV_VERIFY=2' ],
+          }],
+        ]
       },
       'Release': {
         'defines': [ 'NDEBUG' ],
@@ -52,9 +60,6 @@
             'OmitFramePointers': 'true',
             'EnableFunctionLevelLinking': 'true',
             'EnableIntrinsicFunctions': 'true',
-            'AdditionalOptions': [
-              '/MP', # compile across multiple CPUs
-            ],
           },
           'VCLibrarianTool': {
             'AdditionalOptions': [
@@ -79,6 +84,9 @@
         'ExceptionHandling': 1, # /EHsc
         'SuppressStartupBanner': 'true',
         'WarnAsError': 'false',
+        'AdditionalOptions': [
+           '/MP', # compile across multiple CPUs
+         ],
       },
       'VCLibrarianTool': {
       },
@@ -109,18 +117,27 @@
         ],
       }],
       [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
-        'cflags': [ '-Wall', '-pthread', ],
+        'variables': {
+          'gcc_version%': '<!(python build/gcc_version.py)>)',
+        },
+        'cflags': [ '-Wall' ],
         'cflags_cc': [ '-fno-rtti', '-fno-exceptions' ],
-        'ldflags': [ '-pthread', ],
         'conditions': [
-          [ 'target_arch=="ia32"', {
+          [ 'host_arch != target_arch and target_arch=="ia32"', {
             'cflags': [ '-m32' ],
             'ldflags': [ '-m32' ],
           }],
           [ 'OS=="linux"', {
             'cflags': [ '-ansi' ],
           }],
-          [ 'visibility=="hidden"', {
+          [ 'OS=="solaris"', {
+            'cflags': [ '-pthreads' ],
+            'ldflags': [ '-pthreads' ],
+          }, {
+            'cflags': [ '-pthread' ],
+            'ldflags': [ '-pthread' ],
+          }],
+          [ 'visibility=="hidden" and gcc_version >= "4.0.0"', {
             'cflags': [ '-fvisibility=hidden' ],
           }],
         ],
@@ -138,9 +155,7 @@
           'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
           'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',      # -fvisibility=hidden
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
-          'GCC_VERSION': '4.2',
           'GCC_WARN_ABOUT_MISSING_NEWLINE': 'YES',  # -Wnewline-eof
-          'MACOSX_DEPLOYMENT_TARGET': '10.4',       # -mmacosx-version-min=10.4
           'PREBINDING': 'NO',                       # No -Wl,-prebind
           'USE_HEADERMAP': 'NO',
           'OTHER_CFLAGS': [

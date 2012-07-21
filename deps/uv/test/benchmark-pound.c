@@ -26,8 +26,9 @@
 #define MAX_CONNS 1000
 
 #undef NANOSEC
-#define NANOSEC ((uint64_t)10e8)
+#define NANOSEC ((uint64_t) 1e9)
 
+#undef DEBUG
 #define DEBUG 0
 
 struct conn_rec_s;
@@ -106,7 +107,9 @@ static void connect_cb(uv_connect_t* req, int status) {
 
   if (status != 0) {
 #if DEBUG
-    fprintf(stderr, "connect error %s\n", uv_err_name(uv_last_error()));
+    fprintf(stderr,
+            "connect error %s\n",
+            uv_err_name(uv_last_error(uv_default_loop())));
 #endif
     uv_close((uv_handle_t*)req->handle, close_cb);
     conns_failed++;
@@ -135,7 +138,6 @@ static void connect_cb(uv_connect_t* req, int status) {
 
 
 static void read_cb(uv_stream_t* stream, ssize_t nread, uv_buf_t buf) {
-  conn_rec* p = (conn_rec*)stream->data;
   uv_err_t err = uv_last_error(loop);
 
   ASSERT(stream != NULL);
@@ -222,15 +224,10 @@ static void tcp_make_connect(conn_rec* p) {
 static void pipe_make_connect(conn_rec* p) {
   int r;
 
-  r = uv_pipe_init(loop, (uv_pipe_t*)&p->stream);
+  r = uv_pipe_init(loop, (uv_pipe_t*)&p->stream, 0);
   ASSERT(r == 0);
 
-  r = uv_pipe_connect(&((pipe_conn_rec*)p)->conn_req, (uv_pipe_t*)&p->stream, TEST_PIPENAME, connect_cb);
-  if (r) {
-    fprintf(stderr, "uv_tcp_connect error %s\n",
-        uv_err_name(uv_last_error(loop)));
-    ASSERT(0);
-  }
+  uv_pipe_connect(&((pipe_conn_rec*)p)->conn_req, (uv_pipe_t*)&p->stream, TEST_PIPENAME, connect_cb);
 
 #if DEBUG
   printf("make connect %d\n", p->i);

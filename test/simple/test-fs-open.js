@@ -26,7 +26,8 @@ var fs = require('fs');
 
 var caughtException = false;
 try {
-  // should throw ENOENT, not EBADF - see https://github.com/joyent/node/pull/1228
+  // should throw ENOENT, not EBADF
+  // see https://github.com/joyent/node/pull/1228
   fs.openSync('/path/to/file/that/does/not/exist', 'r');
 }
 catch (e) {
@@ -40,11 +41,19 @@ fs.open(__filename, 'r', function(err, fd) {
   if (err) {
     throw err;
   }
-
   openFd = fd;
 });
 
-process.addListener('exit', function() {
+var openFd2;
+fs.open(__filename, 'rs', function(err, fd) {
+  if (err) {
+    throw err;
+  }
+  openFd2 = fd;
+});
+
+process.on('exit', function() {
   assert.ok(openFd);
+  assert.ok(openFd2);
 });
 

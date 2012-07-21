@@ -132,6 +132,7 @@ int ares_parse_aaaa_reply(const unsigned char *abuf, int alen,
       aptr += len;
       if (aptr + RRFIXEDSZ > abuf + alen)
         {
+          free(rr_name);
           status = ARES_EBADRESP;
           break;
         }
@@ -149,6 +150,7 @@ int ares_parse_aaaa_reply(const unsigned char *abuf, int alen,
             {
               if (aptr + sizeof(struct ares_in6_addr) > abuf + alen)
               {
+                free(rr_name);
                 status = ARES_EBADRESP;
                 break;
               }
@@ -159,6 +161,7 @@ int ares_parse_aaaa_reply(const unsigned char *abuf, int alen,
               struct ares_addr6ttl * const at = &addrttls[naddrs];
               if (aptr + sizeof(struct ares_in6_addr) > abuf + alen)
               {
+                free(rr_name);
                 status = ARES_EBADRESP;
                 break;
               }
@@ -201,7 +204,9 @@ int ares_parse_aaaa_reply(const unsigned char *abuf, int alen,
         }
     }
 
-  if (status == ARES_SUCCESS && naddrs == 0)
+  /* the check for naliases to be zero is to make sure CNAME responses
+     don't get caught here */
+  if (status == ARES_SUCCESS && naddrs == 0 && naliases == 0)
     status = ARES_ENODATA;
   if (status == ARES_SUCCESS)
     {

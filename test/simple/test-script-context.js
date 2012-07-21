@@ -50,20 +50,22 @@ Script.runInNewContext('', null, 'some.js');
 common.debug('test runInContext signature');
 var gh1140Exception;
 try {
-    Script.runInContext('throw new Error()', context, 'expected-filename.js');
+  Script.runInContext('throw new Error()', context, 'expected-filename.js');
 }
 catch (e) {
-    gh1140Exception = e;
-    assert.ok(/expected-filename/.test(e.stack), 'expected appearance of filename in Error stack');
+  gh1140Exception = e;
+  assert.ok(/expected-filename/.test(e.stack),
+            'expected appearance of filename in Error stack');
 }
-assert.ok(gh1140Exception, 'expected exception from runInContext signature test');
+assert.ok(gh1140Exception,
+          'expected exception from runInContext signature test');
 
 // GH-558, non-context argument segfaults / raises assertion
 function isTypeError(o) {
   return o instanceof TypeError;
 }
 
-[undefined, null, 0, 0.0, '', {}, []].forEach(function(e) {
+([undefined, null, 0, 0.0, '', {}, []].forEach(function(e) {
   assert.throws(function() { script.runInContext(e); }, isTypeError);
   assert.throws(function() { vm.runInContext('', e); }, isTypeError);
-});
+}));

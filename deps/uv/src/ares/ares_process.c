@@ -1,6 +1,6 @@
 
 /* Copyright 1998 by the Massachusetts Institute of Technology.
- * Copyright (C) 2004-2010 by Daniel Stenberg
+ * Copyright (C) 2004-2012 by Daniel Stenberg
  *
  * Permission to use, copy, modify, and distribute this
  * software and its documentation for any purpose and without
@@ -63,10 +63,10 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <time.h>
-#include <errno.h>
 
 #include "ares.h"
 #include "ares_dns.h"
+#include "ares_nowarn.h"
 #include "ares_private.h"
 
 
@@ -300,29 +300,28 @@ static void advance_tcp_send_queue(ares_channel channel, int whichserver,
 {
   struct send_request *sendreq;
   struct server_state *server = &channel->servers[whichserver];
-  while (num_bytes > 0)
-    {
-      sendreq = server->qhead;
-      if ((size_t)num_bytes >= sendreq->len)
-       {
-         num_bytes -= sendreq->len;
-         server->qhead = sendreq->next;
-         if (server->qhead == NULL)
-           {
-             SOCK_STATE_CALLBACK(channel, server->tcp_socket, 1, 0);
-             server->qtail = NULL;
-           }
-         if (sendreq->data_storage != NULL)
-           free(sendreq->data_storage);
-         free(sendreq);
-       }
-      else
-       {
-         sendreq->data += num_bytes;
-         sendreq->len -= num_bytes;
-         num_bytes = 0;
-       }
+  while (num_bytes > 0) {
+    sendreq = server->qhead;
+    if ((size_t)num_bytes >= sendreq->len) {
+      num_bytes -= sendreq->len;
+      server->qhead = sendreq->next;
+      if (sendreq->data_storage)
+        free(sendreq->data_storage);
+      free(sendreq);
+      if (server->qhead == NULL) {
+        SOCK_STATE_CALLBACK(channel, server->tcp_socket, 1, 0);
+        server->qtail = NULL;
+
+        /* qhead is NULL so we cannot continue this loop */
+        break;
+      }
     }
+    else {
+      sendreq->data += num_bytes;
+      sendreq->len -= num_bytes;
+      num_bytes = 0;
+    }
+  }
 }
 
 /* If any TCP socket selects true for reading, read some data,
@@ -686,7 +685,7 @@ static void next_server(ares_channel channel, struct query *query,
    * servers to try. In total, we need to do channel->nservers * channel->tries
    * attempts. Use query->try to remember how many times we already attempted
    * this query. Use modular arithmetic to find the next server to try. */
-  while (++(query->try) < (channel->nservers * channel->tries))
+  while (++(query->try_count) < (channel->nservers * channel->tries))
     {
       struct server_state *server;
 
@@ -791,7 +790,7 @@ void ares__send_query(ares_channel channel, struct query *query,
           return;
         }
     }
-    timeplus = channel->timeout << (query->try / channel->nservers);
+    timeplus = channel->timeout << (query->try_count / channel->nservers);
     timeplus = (timeplus * (9 + (rand () & 7))) / 16;
     query->timeout = *now;
     ares__timeadd(&query->timeout,
@@ -838,30 +837,29 @@ static int setsocknonblock(ares_socket_t sockfd,    /* operate on this */
 #elif defined(HAVE_IOCTL_FIONBIO)
 
   /* older unix versions */
-  int flags;
-  flags = nonblock;
+  int flags = nonblock ? 1 : 0;
   return ioctl(sockfd, FIONBIO, &flags);
 
 #elif defined(HAVE_IOCTLSOCKET_FIONBIO)
 
 #ifdef WATT32
-  char flags;
+  char flags = nonblock ? 1 : 0;
 #else
   /* Windows */
-  unsigned long flags;
+  unsigned long flags = nonblock ? 1UL : 0UL;
 #endif
-  flags = nonblock;
   return ioctlsocket(sockfd, FIONBIO, &flags);
 
 #elif defined(HAVE_IOCTLSOCKET_CAMEL_FIONBIO)
 
   /* Amiga */
-  return IoctlSocket(sockfd, FIONBIO, (long)nonblock);
+  long flags = nonblock ? 1L : 0L;
+  return IoctlSocket(sockfd, FIONBIO, flags);
 
 #elif defined(HAVE_SETSOCKOPT_SO_NONBLOCK)
 
   /* BeOS */
-  long b = nonblock ? 1 : 0;
+  long b = nonblock ? 1L : 0L;
   return setsockopt(sockfd, SOL_SOCKET, SO_NONBLOCK, &b, sizeof(b));
 
 #else
@@ -948,7 +946,7 @@ static int open_tcp_socket(ares_channel channel, struct server_state *server)
         salen = sizeof(saddr.sa4);
         memset(sa, 0, salen);
         saddr.sa4.sin_family = AF_INET;
-        saddr.sa4.sin_port = (unsigned short)(channel->tcp_port & 0xffff);
+        saddr.sa4.sin_port = aresx_sitous(channel->tcp_port);
         memcpy(&saddr.sa4.sin_addr, &server->addr.addrV4,
                sizeof(server->addr.addrV4));
         break;
@@ -957,7 +955,7 @@ static int open_tcp_socket(ares_channel channel, struct server_state *server)
         salen = sizeof(saddr.sa6);
         memset(sa, 0, salen);
         saddr.sa6.sin6_family = AF_INET6;
-        saddr.sa6.sin6_port = (unsigned short)(channel->tcp_port & 0xffff);
+        saddr.sa6.sin6_port = aresx_sitous(channel->tcp_port);
         memcpy(&saddr.sa6.sin6_addr, &server->addr.addrV6,
                sizeof(server->addr.addrV6));
         break;
@@ -1040,7 +1038,7 @@ static int open_udp_socket(ares_channel channel, struct server_state *server)
         salen = sizeof(saddr.sa4);
         memset(sa, 0, salen);
         saddr.sa4.sin_family = AF_INET;
-        saddr.sa4.sin_port = (unsigned short)(channel->udp_port & 0xffff);
+        saddr.sa4.sin_port = aresx_sitous(channel->udp_port);
         memcpy(&saddr.sa4.sin_addr, &server->addr.addrV4,
                sizeof(server->addr.addrV4));
         break;
@@ -1049,7 +1047,7 @@ static int open_udp_socket(ares_channel channel, struct server_state *server)
         salen = sizeof(saddr.sa6);
         memset(sa, 0, salen);
         saddr.sa6.sin6_family = AF_INET6;
-        saddr.sa6.sin6_port = (unsigned short)(channel->udp_port & 0xffff);
+        saddr.sa6.sin6_port = aresx_sitous(channel->udp_port);
         memcpy(&saddr.sa6.sin6_addr, &server->addr.addrV6,
                sizeof(server->addr.addrV6));
         break;

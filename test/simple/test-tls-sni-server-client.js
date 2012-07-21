@@ -19,12 +19,12 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
+
 
 
 if (!process.features.tls_sni) {
-  console.error("Skipping because node compiled without OpenSSL or " +
-                "with old OpenSSL version.");
+  console.error('Skipping because node compiled without OpenSSL or ' +
+                'with old OpenSSL version.');
   process.exit(0);
 }
 
@@ -34,7 +34,7 @@ var common = require('../common'),
     tls = require('tls');
 
 function filenamePEM(n) {
-  return require('path').join(common.fixturesDir, 'keys', n + ".pem");
+  return require('path').join(common.fixturesDir, 'keys', n + '.pem');
 }
 
 function loadPEM(n) {
@@ -57,25 +57,27 @@ var SNIContexts = {
   }
 };
 
+var serverPort = common.PORT;
 
 var clientsOptions = [{
+  port: serverPort,
   key: loadPEM('agent1-key'),
   cert: loadPEM('agent1-cert'),
   ca: [loadPEM('ca1-cert')],
   servername: 'a.example.com'
 },{
+  port: serverPort,
   key: loadPEM('agent2-key'),
   cert: loadPEM('agent2-cert'),
   ca: [loadPEM('ca2-cert')],
   servername: 'b.test.com'
 },{
+  port: serverPort,
   key: loadPEM('agent3-key'),
   cert: loadPEM('agent3-cert'),
   ca: [loadPEM('ca1-cert')],
   servername: 'c.wrong.com'
 }];
-
-var serverPort = common.PORT;
 
 var serverResults = [],
     clientResults = [];
@@ -91,8 +93,10 @@ server.listen(serverPort, startTest);
 
 function startTest() {
   function connectClient(options, callback) {
-    var client = tls.connect(serverPort, 'localhost', options, function() {
-      clientResults.push(client.authorized);
+    var client = tls.connect(options, function() {
+      clientResults.push(
+        client.authorizationError &&
+        /Hostname\/IP doesn't/.test(client.authorizationError));
       client.destroy();
 
       callback();
@@ -106,7 +110,7 @@ function startTest() {
       });
     });
   });
-};
+}
 
 process.on('exit', function() {
   assert.deepEqual(serverResults, ['a.example.com', 'b.test.com',

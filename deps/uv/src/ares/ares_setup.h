@@ -1,9 +1,8 @@
 #ifndef HEADER_CARES_SETUP_H
 #define HEADER_CARES_SETUP_H
 
-/* $Id$ */
 
-/* Copyright (C) 2004 - 2009 by Daniel Stenberg et al
+/* Copyright (C) 2004 - 2012 by Daniel Stenberg et al
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee is hereby granted, provided
@@ -31,6 +30,12 @@
 
 #ifdef HAVE_CONFIG_H
 #include "ares_config.h"
+#else
+
+#ifdef WIN32
+#include "config-win32.h"
+#endif
+
 #endif /* HAVE_CONFIG_H */
 
 /* ================================================================ */
@@ -70,7 +75,9 @@
 /*  please, do it beyond the point further indicated in this file.  */
 /* ================================================================ */
 
-#if 0 /* libuv disabled */
+#if 1 /* libuv hack */
+#include <errno.h> /* needed on windows */
+#else
 /*
  * c-ares external interface definitions are also used internally,
  * and might also include required system header files to define them.
@@ -83,7 +90,7 @@
  */
 
 #include <ares_rules.h>
-#endif
+#endif /* libuv hack */
 
 /* ================================================================= */
 /* No system header file shall be included in this file before this  */
@@ -102,6 +109,10 @@
  */
 
 #ifdef HAVE_WINDOWS_H
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <windows.h>
 #  ifdef HAVE_WINSOCK2_H
 #    include <winsock2.h>
 #    ifdef HAVE_WS2TCPIP_H
@@ -112,7 +123,6 @@
 #      include <winsock.h>
 #    endif
 #  endif
-#  include <windows.h>
 #endif
 
 /*
@@ -151,10 +161,30 @@
 
 #endif /* HAVE_CONFIG_H */
 
+/*
+ * Arg 2 type for gethostname in case it hasn't been defined in config file.
+ */
+
+#ifndef GETHOSTNAME_TYPE_ARG2
+#  ifdef USE_WINSOCK
+#    define GETHOSTNAME_TYPE_ARG2 int
+#  else
+#    define GETHOSTNAME_TYPE_ARG2 size_t
+#  endif
+#endif
+
 #ifdef __POCC__
 #  include <sys/types.h>
 #  include <unistd.h>
 #  define ESRCH 3
+#endif
+
+/*
+ * Android does have the arpa/nameser.h header which is detected by configure
+ * but it appears to be empty with recent NDK r7b / r7c, so we undefine here.
+ */
+#if (defined(ANDROID) || defined(__ANDROID__)) && defined(HAVE_ARPA_NAMESER_H)
+#  undef HAVE_ARPA_NAMESER_H
 #endif
 
 /*

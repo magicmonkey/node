@@ -1,280 +1,118 @@
-WAF=python tools/waf-light
+-include config.mk
 
-web_root = node@nodejs.org:~/web/nodejs.org/
+BUILDTYPE ?= Release
+PYTHON ?= python
+DESTDIR ?=
 
-#
-# Because we recursively call make from waf we need to make sure that we are
-# using the correct make. Not all makes are GNU Make, but this likely only
-# works with gnu make. To deal with this we remember how the user invoked us
-# via a make builtin variable and use that in all subsequent operations
-#
-export NODE_MAKE := $(MAKE)
+# BUILDTYPE=Debug builds both release and debug builds. If you want to compile
+# just the debug build, run `make -C out BUILDTYPE=Debug` instead.
+ifeq ($(BUILDTYPE),Release)
+all: out/Makefile node
+else
+all: out/Makefile node node_g
+endif
 
-all: program
-	@-[ -f out/Release/node ] && ls -lh out/Release/node
-	@-[ -f out/Debug/node ] && ls -lh out/Debug/node
+# The .PHONY is needed to ensure that we recursively use the out/Makefile
+# to check for changes.
+.PHONY: node node_g
 
-all-progress:
-	@$(WAF) -p build
+node: config.gypi
+	$(MAKE) -C out BUILDTYPE=Release
+	ln -fs out/Release/node node
 
-program:
-	@$(WAF) --product-type=program build
+node_g: config.gypi
+	$(MAKE) -C out BUILDTYPE=Debug
+	ln -fs out/Debug/node node_g
 
-staticlib:
-	@$(WAF) --product-type=cstaticlib build
+config.gypi: configure
+	./configure
 
-dynamiclib:
-	@$(WAF) --product-type=cshlib build
+out/Debug/node:
+	$(MAKE) -C out BUILDTYPE=Debug
 
-install:
-	@$(WAF) install
+out/Makefile: common.gypi deps/uv/uv.gyp deps/http_parser/http_parser.gyp deps/zlib/zlib.gyp deps/v8/build/common.gypi deps/v8/tools/gyp/v8.gyp node.gyp config.gypi
+	$(PYTHON) tools/gyp_node -f make
+
+install: all
+	out/Release/node tools/installer.js install $(DESTDIR)
 
 uninstall:
-	@$(WAF) uninstall
+	out/Release/node tools/installer.js uninstall
+
+clean:
+	-rm -rf out/Makefile node node_g out/$(BUILDTYPE)/node blog.html email.md
+	-find out/ -name '*.o' -o -name '*.a' | xargs rm -rf
+	-rm -rf node_modules
+
+distclean:
+	-rm -rf out
+	-rm -f config.gypi
+	-rm -f config.mk
+	-rm -rf node node_g blog.html email.md
+	-rm -rf node_modules
 
 test: all
-	python tools/test.py --mode=release simple message
+	$(PYTHON) tools/test.py --mode=release simple message
+	PYTHONPATH=tools/closure_linter/ $(PYTHON) tools/closure_linter/closure_linter/gjslint.py --unix_mode --strict --nojsdoc -r lib/ -r src/ --exclude_files lib/punycode.js
 
 test-http1: all
-	python tools/test.py --mode=release --use-http1 simple message
+	$(PYTHON) tools/test.py --mode=release --use-http1 simple message
 
 test-valgrind: all
-	python tools/test.py --mode=release --valgrind simple message
+	$(PYTHON) tools/test.py --mode=release --valgrind simple message
 
-test-all: all
-	python tools/test.py --mode=debug,release
+test/gc/node_modules/weak/build:
+	@if [ ! -f node ]; then make all; fi
+	./node deps/npm/node_modules/node-gyp/bin/node-gyp rebuild \
+		--directory="$(shell pwd)/test/gc/node_modules/weak" \
+		--nodedir="$(shell pwd)"
+
+test-gc: all test/gc/node_modules/weak/build
+	$(PYTHON) tools/test.py --mode=release gc
+
+test-all: all test/gc/node_modules/weak/build
+	$(PYTHON) tools/test.py --mode=debug,release
+	make test-npm
 
 test-all-http1: all
-	python tools/test.py --mode=debug,release --use-http1
+	$(PYTHON) tools/test.py --mode=debug,release --use-http1
 
 test-all-valgrind: all
-	python tools/test.py --mode=debug,release --valgrind
+	$(PYTHON) tools/test.py --mode=debug,release --valgrind
 
 test-release: all
-	python tools/test.py --mode=release
+	$(PYTHON) tools/test.py --mode=release
 
 test-debug: all
-	python tools/test.py --mode=debug
+	$(PYTHON) tools/test.py --mode=debug
 
 test-message: all
-	python tools/test.py message
+	$(PYTHON) tools/test.py message
 
 test-simple: all
-	python tools/test.py simple
+	$(PYTHON) tools/test.py simple
 
 test-pummel: all
-	python tools/test.py pummel
+	$(PYTHON) tools/test.py pummel
 
 test-internet: all
-	python tools/test.py internet
+	$(PYTHON) tools/test.py internet
 
-UVTEST += simple/test-assert
-UVTEST += simple/test-buffer
-UVTEST += simple/test-c-ares
-UVTEST += simple/test-chdir
-UVTEST += simple/test-delayed-require
-UVTEST += simple/test-dgram-pingpong
-UVTEST += simple/test-dgram-udp4
-UVTEST += simple/test-eio-race2
-UVTEST += simple/test-eio-race4
-UVTEST += simple/test-event-emitter-add-listeners
-UVTEST += simple/test-event-emitter-modify-in-emit
-UVTEST += simple/test-event-emitter-num-args
-UVTEST += simple/test-event-emitter-once
-UVTEST += simple/test-event-emitter-remove-all-listeners
-UVTEST += simple/test-event-emitter-remove-listeners
-UVTEST += simple/test-exception-handler
-UVTEST += simple/test-exception-handler2
-UVTEST += simple/test-exception-handler
-UVTEST += simple/test-executable-path
-UVTEST += simple/test-file-read-noexist
-UVTEST += simple/test-file-write-stream
-UVTEST += simple/test-fs-fsync
-UVTEST += simple/test-fs-open
-UVTEST += simple/test-fs-readfile-empty
-UVTEST += simple/test-fs-read-file-sync
-UVTEST += simple/test-fs-read-file-sync-hostname
-UVTEST += simple/test-fs-sir-writes-alot
-UVTEST += simple/test-fs-write
-UVTEST += simple/test-fs-write-buffer
-UVTEST += simple/test-fs-write-file
-UVTEST += simple/test-fs-write-file-buffer
-UVTEST += simple/test-fs-write-stream
-UVTEST += simple/test-fs-write-stream-end
-UVTEST += simple/test-fs-write-sync
-UVTEST += simple/test-global
-UVTEST += simple/test-http
-UVTEST += simple/test-http-1.0
-UVTEST += simple/test-http-abort-client
-UVTEST += simple/test-http-allow-req-after-204-res
-UVTEST += simple/test-http-blank-header
-UVTEST += simple/test-http-buffer-sanity
-UVTEST += simple/test-http-cat
-UVTEST += simple/test-http-chunked
-UVTEST += simple/test-http-client-abort
-UVTEST += simple/test-http-client-parse-error
-UVTEST += simple/test-http-client-race
-UVTEST += simple/test-http-client-race-2
-UVTEST += simple/test-http-client-upload
-UVTEST += simple/test-http-client-upload-buf
-UVTEST += simple/test-http-contentLength0
-UVTEST += simple/test-http-curl-chunk-problem
-UVTEST += simple/test-http-default-encoding
-UVTEST += simple/test-http-dns-fail
-UVTEST += simple/test-http-dns-error
-UVTEST += simple/test-http-eof-on-connect
-UVTEST += simple/test-http-exceptions
-UVTEST += simple/test-http-expect-continue
-UVTEST += simple/test-http-extra-response
-UVTEST += simple/test-http-head-request
-UVTEST += simple/test-http-head-response-has-no-body
-UVTEST += simple/test-http-keep-alive
-UVTEST += simple/test-http-keep-alive-close-on-header
-UVTEST += simple/test-http-malformed-request
-UVTEST += simple/test-http-many-keep-alive-connections
-UVTEST += simple/test-http-mutable-headers
-UVTEST += simple/test-http-parser
-UVTEST += simple/test-http-proxy
-UVTEST += simple/test-http-request-end
-UVTEST += simple/test-http-response-close
-UVTEST += simple/test-http-response-readable
-UVTEST += simple/test-http-unix-socket
-UVTEST += simple/test-http-server
-UVTEST += simple/test-http-server-multiheaders
-UVTEST += simple/test-http-set-cookies
-UVTEST += simple/test-http-set-timeout
-UVTEST += simple/test-http-set-trailers
-UVTEST += simple/test-http-upgrade-agent
-UVTEST += simple/test-http-upgrade-client
-UVTEST += simple/test-http-upgrade-client2
-UVTEST += simple/test-http-upgrade-server
-UVTEST += simple/test-http-upgrade-server2
-UVTEST += simple/test-http-wget
-UVTEST += simple/test-http-write-empty-string
-UVTEST += simple/test-http-wget
-UVTEST += simple/test-mkdir-rmdir
-UVTEST += simple/test-net-binary
-UVTEST += simple/test-net-pingpong
-UVTEST += simple/test-net-can-reset-timeout
-UVTEST += simple/test-net-connect-buffer
-UVTEST += simple/test-net-connect-timeout
-UVTEST += simple/test-net-create-connection
-UVTEST += simple/test-net-eaddrinuse
-UVTEST += simple/test-net-isip
-UVTEST += simple/test-net-keepalive
-UVTEST += simple/test-net-pingpong
-UVTEST += simple/test-net-reconnect
-UVTEST += simple/test-net-remote-address-port
-UVTEST += simple/test-net-server-bind
-UVTEST += simple/test-net-server-max-connections
-UVTEST += simple/test-net-server-try-ports
-UVTEST += simple/test-net-stream
-UVTEST += simple/test-net-socket-timeout
-UVTEST += simple/test-next-tick
-UVTEST += simple/test-next-tick-doesnt-hang
-UVTEST += simple/test-next-tick-errors
-UVTEST += simple/test-next-tick-ordering
-UVTEST += simple/test-next-tick-ordering2
-UVTEST += simple/test-next-tick-starvation
-UVTEST += simple/test-module-load-list
-UVTEST += simple/test-path
-UVTEST += simple/test-pipe-stream
-UVTEST += simple/test-pipe-file-to-http
-UVTEST += simple/test-process-env
-UVTEST += simple/test-pump-file2tcp
-UVTEST += simple/test-pump-file2tcp-noexist
-UVTEST += simple/test-punycode
-UVTEST += simple/test-querystring
-UVTEST += simple/test-readdir
-UVTEST += simple/test-readdouble
-UVTEST += simple/test-readfloat
-UVTEST += simple/test-readint
-UVTEST += simple/test-readuint
-UVTEST += simple/test-regress-GH-746
-UVTEST += simple/test-regress-GH-819
-UVTEST += simple/test-regress-GH-897
-UVTEST += simple/test-regress-GH-1531
-UVTEST += simple/test-regression-object-prototype
-UVTEST += simple/test-repl
-UVTEST += simple/test-require-cache
-UVTEST += simple/test-require-cache-without-stat
-UVTEST += simple/test-require-exceptions
-UVTEST += simple/test-require-resolve
-UVTEST += simple/test-script-context
-UVTEST += simple/test-script-new
-UVTEST += simple/test-script-static-context
-UVTEST += simple/test-script-static-new
-UVTEST += simple/test-script-static-this
-UVTEST += simple/test-script-this
-UVTEST += simple/test-stream-pipe-cleanup
-UVTEST += simple/test-stream-pipe-error-handling
-UVTEST += simple/test-stream-pipe-event
-UVTEST += simple/test-stream-pipe-multi
-UVTEST += simple/test-string-decoder
-UVTEST += simple/test-sys
-UVTEST += simple/test-tcp-wrap
-UVTEST += simple/test-tcp-wrap-connect
-UVTEST += simple/test-tcp-wrap-listen
-UVTEST += simple/test-timers-linked-list
-UVTEST += simple/test-tty-stdout-end
-UVTEST += simple/test-umask
-UVTEST += simple/test-url
-UVTEST += simple/test-utf8-scripts
-UVTEST += simple/test-vm-create-context-circular-reference
-UVTEST += simple/test-writedouble
-UVTEST += simple/test-writefloat
-UVTEST += simple/test-writeint
-UVTEST += simple/test-writeuint
-UVTEST += simple/test-zerolengthbufferbug
-UVTEST += pummel/test-http-client-reconnect-bug
-UVTEST += pummel/test-http-upload-timeout
-UVTEST += pummel/test-net-many-clients
-UVTEST += pummel/test-net-pause
-UVTEST += pummel/test-net-pingpong-delay
-UVTEST += pummel/test-net-timeout
-UVTEST += pummel/test-timers
-UVTEST += pummel/test-timer-wrap
-UVTEST += pummel/test-timer-wrap2
-UVTEST += pummel/test-vm-memleak
-UVTEST += internet/test-dns
-UVTEST += simple/test-tls-client-abort
-UVTEST += simple/test-tls-client-verify
-UVTEST += simple/test-tls-connect
-#UVTEST += simple/test-tls-ext-key-usage # broken
-UVTEST += simple/test-tls-junk-closes-server
-UVTEST += simple/test-tls-npn-server-client
-UVTEST += simple/test-tls-request-timeout
-#UVTEST += simple/test-tls-securepair-client # broken
-UVTEST += simple/test-tls-securepair-server 
-#UVTEST += simple/test-tls-server-verify # broken
-UVTEST += simple/test-tls-set-encoding
+test-npm: node
+	./node deps/npm/test/run.js
 
-# child_process
-UVTEST += simple/test-child-process-exit-code
-UVTEST += simple/test-child-process-buffering
-UVTEST += simple/test-child-process-exec-cwd
-UVTEST += simple/test-child-process-cwd
-UVTEST += simple/test-child-process-env
-UVTEST += simple/test-child-process-stdin
-UVTEST += simple/test-child-process-ipc
-UVTEST += simple/test-child-process-deprecated-api
-
-
-test-uv: all
-	NODE_USE_UV=1 python tools/test.py --libuv simple
-
-test-uv-debug: all
-	NODE_USE_UV=1 python tools/test.py --mode=debug simple
-
-
-out/Release/node: all
+test-npm-publish: node
+	npm_package_config_publishtest=true ./node deps/npm/test/run.js
 
 apidoc_sources = $(wildcard doc/api/*.markdown)
-apidocs = $(addprefix out/,$(apidoc_sources:.markdown=.html))
+apidocs = $(addprefix out/,$(apidoc_sources:.markdown=.html)) \
+          $(addprefix out/,$(apidoc_sources:.markdown=.json))
 
-apidoc_dirs = out/doc out/doc/api/ out/doc/api/assets
+apidoc_dirs = out/doc out/doc/api/ out/doc/api/assets out/doc/about out/doc/community out/doc/logos out/doc/images
 
 apiassets = $(subst api_assets,api/assets,$(addprefix out/,$(wildcard doc/api_assets/*)))
+
+doc_images = $(addprefix out/,$(wildcard doc/images/* doc/*.jpg doc/*.png))
 
 website_files = \
 	out/doc/index.html    \
@@ -283,12 +121,22 @@ website_files = \
 	out/doc/sh_main.js    \
 	out/doc/sh_javascript.min.js \
 	out/doc/sh_vim-dark.css \
-	out/doc/logo.png      \
-	out/doc/sponsored.png \
-  out/doc/favicon.ico   \
-	out/doc/pipe.css
+	out/doc/sh.css \
+	out/doc/favicon.ico   \
+	out/doc/pipe.css \
+	out/doc/about/index.html \
+	out/doc/community/index.html \
+	out/doc/logos/index.html \
+	out/doc/changelog.html \
+	$(doc_images)
 
-doc: out/Release/node $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs)
+doc: $(apidoc_dirs) $(website_files) $(apiassets) $(apidocs) tools/doc/ blog node
+
+blogclean:
+	rm -rf out/blog
+
+blog: doc/blog out/Release/node tools/blog
+	out/Release/node tools/blog/generate.js doc/blog/ out/blog/ doc/blog.html doc/rss.xml
 
 $(apidoc_dirs):
 	mkdir -p $@
@@ -296,16 +144,40 @@ $(apidoc_dirs):
 out/doc/api/assets/%: doc/api_assets/% out/doc/api/assets/
 	cp $< $@
 
+out/doc/changelog.html: ChangeLog doc/changelog-head.html doc/changelog-foot.html tools/build-changelog.sh node
+	bash tools/build-changelog.sh
+
+out/doc/%.html: doc/%.html node
+	cat $< | sed -e 's|__VERSION__|'$(VERSION)'|g' > $@
+
 out/doc/%: doc/%
-	cp $< $@
+	cp -r $< $@
 
-out/doc/api/%.html: doc/api/%.markdown out/Release/node $(apidoc_dirs) $(apiassets) tools/doctool/doctool.js
-	out/Release/node tools/doctool/doctool.js doc/template.html $< > $@
+out/doc/api/%.json: doc/api/%.markdown node
+	out/Release/node tools/doc/generate.js --format=json $< > $@
 
-out/doc/%:
+out/doc/api/%.html: doc/api/%.markdown node
+	out/Release/node tools/doc/generate.js --format=html --template=doc/template.html $< > $@
+
+email.md: ChangeLog tools/email-footer.md
+	bash tools/changelog-head.sh | sed 's|^\* #|* \\#|g' > $@
+	cat tools/email-footer.md | sed -e 's|__VERSION__|'$(VERSION)'|g' >> $@
+
+blog.html: email.md
+	cat $< | ./node tools/doc/node_modules/.bin/marked > $@
+
+blog-upload: blog
+	rsync -r out/blog/ node@nodejs.org:~/web/nodejs.org/blog/
 
 website-upload: doc
-	scp -r out/doc/* $(web_root)
+	rsync -r out/doc/ node@nodejs.org:~/web/nodejs.org/
+	ssh node@nodejs.org '\
+    rm -f ~/web/nodejs.org/dist/latest &&\
+    ln -s $(VERSION) ~/web/nodejs.org/dist/latest &&\
+    rm -f ~/web/nodejs.org/docs/latest &&\
+    ln -s $(VERSION) ~/web/nodejs.org/docs/latest &&\
+    rm -f ~/web/nodejs.org/dist/node-latest.tar.gz &&\
+    ln -s $(VERSION)/node-$(VERSION).tar.gz ~/web/nodejs.org/dist/node-latest.tar.gz'
 
 docopen: out/doc/api/all.html
 	-google-chrome out/doc/api/all.html
@@ -313,31 +185,73 @@ docopen: out/doc/api/all.html
 docclean:
 	-rm -rf out/doc
 
-clean:
-	$(WAF) clean
-	-find tools -name "*.pyc" | xargs rm -f
-
-distclean: docclean
-	-find tools -name "*.pyc" | xargs rm -f
-	-rm -rf out/ node node_g
-
-check:
-	@tools/waf-light check
-
-VERSION=$(shell git describe)
+VERSION=v$(shell $(PYTHON) tools/getnodeversion.py)
 TARNAME=node-$(VERSION)
+TARBALL=$(TARNAME).tar.gz
+PKG=out/$(TARNAME).pkg
+packagemaker=/Developer/Applications/Utilities/PackageMaker.app/Contents/MacOS/PackageMaker
 
-#dist: doc/node.1 doc/api
-dist: doc
+dist: doc $(TARBALL) $(PKG)
+
+PKGDIR=out/dist-osx
+
+pkg: $(PKG)
+
+$(PKG):
+	rm -rf $(PKGDIR)
+	rm -rf out/deps out/Release
+	./configure --prefix=$(PKGDIR)/32/usr/local --without-snapshot --dest-cpu=ia32
+	$(MAKE) install
+	rm -rf out/deps out/Release
+	./configure --prefix=$(PKGDIR)/usr/local --without-snapshot --dest-cpu=x64
+	$(MAKE) install
+	lipo $(PKGDIR)/32/usr/local/bin/node \
+		$(PKGDIR)/usr/local/bin/node \
+		-output $(PKGDIR)/usr/local/bin/node-universal \
+		-create
+	mv $(PKGDIR)/usr/local/bin/node-universal $(PKGDIR)/usr/local/bin/node
+	rm -rf $(PKGDIR)/32
+	$(packagemaker) \
+		--id "org.nodejs.NodeJS-$(VERSION)" \
+		--doc tools/osx-pkg.pmdoc \
+		--out $(PKG)
+
+$(TARBALL): node doc
+	@if [ "$(shell git status --porcelain | egrep -v '^\?\? ')" = "" ]; then \
+		exit 0 ; \
+	else \
+	  echo "" >&2 ; \
+		echo "The git repository is not clean." >&2 ; \
+		echo "Please commit changes before building release tarball." >&2 ; \
+		echo "" >&2 ; \
+		git status --porcelain | egrep -v '^\?\?' >&2 ; \
+		echo "" >&2 ; \
+		exit 1 ; \
+	fi
+	@if [ $(shell ./node --version) = "$(VERSION)" ]; then \
+		exit 0; \
+	else \
+	  echo "" >&2 ; \
+		echo "$(shell ./node --version) doesn't match $(VERSION)." >&2 ; \
+	  echo "Did you remember to update src/node_version.cc?" >&2 ; \
+	  echo "" >&2 ; \
+		exit 1 ; \
+	fi
 	git archive --format=tar --prefix=$(TARNAME)/ HEAD | tar xf -
-	mkdir -p $(TARNAME)/doc
+	mkdir -p $(TARNAME)/doc/api
 	cp doc/node.1 $(TARNAME)/doc/node.1
-	cp -r out/doc/api $(TARNAME)/doc/api
+	cp -r out/doc/api/* $(TARNAME)/doc/api/
 	rm -rf $(TARNAME)/deps/v8/test # too big
-	rm -rf $(TARNAME)/doc/logos # too big
+	rm -rf $(TARNAME)/doc/images # too big
+	find $(TARNAME)/ -type l | xargs rm # annoying on windows
 	tar -cf $(TARNAME).tar $(TARNAME)
 	rm -rf $(TARNAME)
 	gzip -f -9 $(TARNAME).tar
+
+dist-upload: $(TARBALL) $(PKG)
+	ssh node@nodejs.org mkdir -p web/nodejs.org/dist/$(VERSION)
+	scp $(TARBALL) node@nodejs.org:~/web/nodejs.org/dist/$(VERSION)/$(TARBALL)
+	scp $(PKG) node@nodejs.org:~/web/nodejs.org/dist/$(VERSION)/$(TARNAME).pkg
 
 bench:
 	 benchmark/http_simple_bench.sh
@@ -348,11 +262,11 @@ bench-idle:
 	./node benchmark/idle_clients.js &
 
 jslint:
-	PYTHONPATH=tools/closure_linter/ python tools/closure_linter/closure_linter/gjslint.py --unix_mode --strict --nojsdoc -r lib/ -r src/ -r test/
+	PYTHONPATH=tools/closure_linter/ $(PYTHON) tools/closure_linter/closure_linter/gjslint.py --unix_mode --strict --nojsdoc -r lib/ -r src/ --exclude_files lib/punycode.js
 
 cpplint:
-	@python tools/cpplint.py $(wildcard src/*.cc src/*.h src/*.c)
+	@$(PYTHON) tools/cpplint.py $(wildcard src/*.cc src/*.h src/*.c)
 
 lint: jslint cpplint
 
-.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install all program staticlib dynamiclib test test-all website-upload
+.PHONY: lint cpplint jslint bench clean docopen docclean doc dist distclean check uninstall install install-includes install-bin all staticlib dynamiclib test test-all website-upload pkg blog blogclean

@@ -207,6 +207,7 @@ enum {
   EV_NONE     =       0x00, /* no events */
   EV_READ     =       0x01, /* ev_io detected read will not block */
   EV_WRITE    =       0x02, /* ev_io detected write will not block */
+  EV_LIBUV_KQUEUE_HACK = 0x40,
   EV__IOFDSET =       0x80, /* internal use only */
   EV_IO       =    EV_READ, /* alias for type-detection */
   EV_TIMER    = 0x00000100, /* timer timed out */
@@ -560,6 +561,8 @@ EV_MAYBE_UNUSED ev_is_default_loop (EV_P)
 
 /* create and destroy alternative loops that don't handle signals */
 struct ev_loop *ev_loop_new (unsigned int flags EV_CPP (= 0));
+
+int ev_loop_refcount (EV_P);
 
 ev_tstamp ev_now (EV_P); /* time w.r.t. timers and the eventloop, updated after each poll */
 

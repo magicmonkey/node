@@ -19,7 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
+
 
 
 var common = require('../common');
@@ -49,8 +49,8 @@ function runAb(opts, callback) {
   var command = 'ab ' + opts + ' http://127.0.0.1:' + common.PORT + '/';
   exec(command, function(err, stdout, stderr) {
     if (err) {
-      if (stderr.indexOf('ab') >= 0) {
-        console.log('ab not installed? skipping test.\n' + stderr);
+      if (/ab|apr/mi.test(stderr)) {
+        console.log('problem spawning ab - skipping test.\n' + stderr);
         process.reallyExit(0);
       }
       process.exit();
@@ -91,6 +91,6 @@ server.listen(common.PORT, function() {
 
 });
 
-process.addListener('exit', function() {
+process.on('exit', function() {
   assert.equal(3, runs);
 });

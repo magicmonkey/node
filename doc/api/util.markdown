@@ -1,10 +1,12 @@
-## util
+# util
+
+    Stability: 5 - Locked
 
 These functions are in the module `'util'`. Use `require('util')` to access
 them.
 
 
-### util.format()
+## util.format(format, [...])
 
 Returns a formatted string using the first argument as a `printf`-like format.
 
@@ -35,27 +37,41 @@ Each argument is converted to a string with `util.inspect()`.
     util.format(1, 2, 3); // '1 2 3'
 
 
-### util.debug(string)
+## util.debug(string)
 
 A synchronous output function. Will block the process and
 output `string` immediately to `stderr`.
 
     require('util').debug('message on stderr');
 
+## util.error([...])
 
-### util.log(string)
+Same as `util.debug()` except this will output all arguments immediately to
+`stderr`.
+
+## util.puts([...])
+
+A synchronous output function. Will block the process and output all arguments
+to `stdout` with newlines after each argument.
+
+## util.print([...])
+
+A synchronous output function. Will block the process, cast each argument to a
+string then output to `stdout`. Does not place newlines after each argument.
+
+## util.log(string)
 
 Output with timestamp on `stdout`.
 
     require('util').log('Timestamped message.');
 
 
-### util.inspect(object, showHidden=false, depth=2)
+## util.inspect(object, [showHidden], [depth], [colors])
 
 Return a string representation of `object`, which is useful for debugging.
 
 If `showHidden` is `true`, then the object's non-enumerable properties will be
-shown too.
+shown too. Defaults to `false`.
 
 If `depth` is provided, it tells `inspect` how many times to recurse while
 formatting the object. This is useful for inspecting large complicated objects.
@@ -63,14 +79,96 @@ formatting the object. This is useful for inspecting large complicated objects.
 The default is to only recurse twice.  To make it recurse indefinitely, pass
 in `null` for `depth`.
 
+If `colors` is `true`, the output will be styled with ANSI color codes.
+Defaults to `false`.
+Colors are customizable, see below.
+
 Example of inspecting all properties of the `util` object:
 
     var util = require('util');
 
     console.log(util.inspect(util, true, null));
 
+### Customizing `util.inspect` colors
 
-### util.pump(readableStream, writableStream, [callback])
+Color output (if enabled) of `util.inspect` is customizable globally
+via `util.inspect.styles` and `util.inspect.colors` objects.
+
+`util.inspect.styles` is a map assigning each style a color
+from `util.inspect.colors`.
+Highlighted styles and their default values are:
+ * `number` (yellow)
+ * `boolean` (yellow)
+ * `string` (green)
+ * `date` (magenta)
+ * `regexp` (red)
+ * `null` (bold)
+ * `undefined` (grey)
+ * `special` - only function at this time (cyan)
+ * `name` (intentionally no styling)
+
+Predefined color codes are: `white`, `grey`, `black`, `blue`, `cyan`, 
+`green`, `magenta`, `red` and `yellow`.
+There are also `bold`, `italic`, `underline` and `inverse` codes.
+
+
+## util.isArray(object)
+
+Returns `true` if the given "object" is an `Array`. `false` otherwise.
+
+    var util = require('util');
+
+    util.isArray([])
+      // true
+    util.isArray(new Array)
+      // true
+    util.isArray({})
+      // false
+
+
+## util.isRegExp(object)
+
+Returns `true` if the given "object" is a `RegExp`. `false` otherwise.
+
+    var util = require('util');
+
+    util.isRegExp(/some regexp/)
+      // true
+    util.isRegExp(new RegExp('another regexp'))
+      // true
+    util.isRegExp({})
+      // false
+
+
+## util.isDate(object)
+
+Returns `true` if the given "object" is a `Date`. `false` otherwise.
+
+    var util = require('util');
+
+    util.isDate(new Date())
+      // true
+    util.isDate(Date())
+      // false (without 'new' returns a String)
+    util.isDate({})
+      // false
+
+
+## util.isError(object)
+
+Returns `true` if the given "object" is an `Error`. `false` otherwise.
+
+    var util = require('util');
+
+    util.isError(new Error())
+      // true
+    util.isError(new TypeError())
+      // true
+    util.isError({ name: 'Error', message: 'an error occurred' })
+      // false
+
+
+## util.pump(readableStream, writableStream, [callback])
 
 Experimental
 
@@ -81,7 +179,7 @@ an error as its only argument and is called when `writableStream` is closed or
 when an error occurs.
 
 
-### util.inherits(constructor, superConstructor)
+## util.inherits(constructor, superConstructor)
 
 Inherit the prototype methods from one
 [constructor](https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Object/constructor)

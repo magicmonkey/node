@@ -22,10 +22,10 @@
 #ifndef SRC_NODE_CRYPTO_H_
 #define SRC_NODE_CRYPTO_H_
 
-#include <node.h>
+#include "node.h"
 
-#include <node_object_wrap.h>
-#include <v8.h>
+#include "node_object_wrap.h"
+#include "v8.h"
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -34,9 +34,11 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/hmac.h>
+#include <openssl/rand.h>
+#include <openssl/pkcs12.h>
 
 #ifdef OPENSSL_NPN_NEGOTIATED
-#include <node_buffer.h>
+#include "node_buffer.h"
 #endif
 
 #define EVP_F_EVP_DECRYPTFINAL 101
@@ -65,7 +67,9 @@ class SecureContext : ObjectWrap {
   static v8::Handle<v8::Value> AddRootCerts(const v8::Arguments& args);
   static v8::Handle<v8::Value> SetCiphers(const v8::Arguments& args);
   static v8::Handle<v8::Value> SetOptions(const v8::Arguments& args);
+  static v8::Handle<v8::Value> SetSessionIdContext(const v8::Arguments& args);
   static v8::Handle<v8::Value> Close(const v8::Arguments& args);
+  static v8::Handle<v8::Value> LoadPKCS12(const v8::Arguments& args);
 
   SecureContext() : ObjectWrap() {
     ctx_ = NULL;
@@ -188,10 +192,12 @@ class Connection : ObjectWrap {
   }
 
  private:
+  static void SSLInfoCallback(const SSL *ssl, int where, int ret);
+
   BIO *bio_read_;
   BIO *bio_write_;
   SSL *ssl_;
-  
+
   bool is_server_; /* coverity[member_decl] */
 };
 

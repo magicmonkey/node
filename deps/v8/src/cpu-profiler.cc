@@ -1,4 +1,4 @@
-// Copyright 2010 the V8 project authors. All rights reserved.
+// Copyright 2012 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -39,13 +39,14 @@
 namespace v8 {
 namespace internal {
 
-static const int kEventsBufferSize = 256*KB;
-static const int kTickSamplesBufferChunkSize = 64*KB;
+static const int kEventsBufferSize = 256 * KB;
+static const int kTickSamplesBufferChunkSize = 64 * KB;
 static const int kTickSamplesBufferChunksCount = 16;
+static const int kProfilerStackSize = 64 * KB;
 
 
 ProfilerEventsProcessor::ProfilerEventsProcessor(ProfileGenerator* generator)
-    : Thread("v8:ProfEvntProc"),
+    : Thread(Thread::Options("v8:ProfEvntProc", kProfilerStackSize)),
       generator_(generator),
       running_(true),
       ticks_buffer_(sizeof(TickSampleEventRecord),
@@ -493,7 +494,7 @@ void CpuProfiler::StartProcessorIfNotStarted() {
     NoBarrier_Store(&is_profiling_, true);
     processor_->Start();
     // Enumerate stuff we already have in the heap.
-    if (isolate->heap()->HasBeenSetup()) {
+    if (isolate->heap()->HasBeenSetUp()) {
       if (!FLAG_prof_browser_mode) {
         bool saved_log_code_flag = FLAG_log_code;
         FLAG_log_code = true;
@@ -551,18 +552,18 @@ void CpuProfiler::StopProcessor() {
     sampler->Stop();
     need_to_stop_sampler_ = false;
   }
+  NoBarrier_Store(&is_profiling_, false);
   processor_->Stop();
   processor_->Join();
   delete processor_;
   delete generator_;
   processor_ = NULL;
-  NoBarrier_Store(&is_profiling_, false);
   generator_ = NULL;
   logger->logging_nesting_ = saved_logging_nesting_;
 }
 
 
-void CpuProfiler::Setup() {
+void CpuProfiler::SetUp() {
   Isolate* isolate = Isolate::Current();
   if (isolate->cpu_profiler() == NULL) {
     isolate->set_cpu_profiler(new CpuProfiler());

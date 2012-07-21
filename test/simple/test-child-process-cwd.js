@@ -39,13 +39,16 @@ function testCwd(options, forCode, forData) {
 
   child.stdout.setEncoding('utf8');
 
-  child.stdout.addListener('data', function(chunk) {
+  child.stdout.on('data', function(chunk) {
     data += chunk;
   });
 
-  child.addListener('exit', function(code, signal) {
-    forData && assert.strictEqual(forData, data.replace(/[\s\r\n]+$/, ''));
+  child.on('exit', function(code, signal) {
     assert.strictEqual(forCode, code);
+  });
+
+  child.on('close', function () {
+    forData && assert.strictEqual(forData, data.replace(/[\s\r\n]+$/, ''));
     returns--;
   });
 
@@ -53,7 +56,7 @@ function testCwd(options, forCode, forData) {
 }
 
 // Assume these exist, and 'pwd' gives us the right directory back
-if (process.platform == "win32") {
+if (process.platform == 'win32') {
   testCwd({cwd: process.env.windir}, 0, process.env.windir);
   testCwd({cwd: 'c:\\'}, 0, 'c:\\');
 } else {
@@ -73,6 +76,6 @@ testCwd({cwd: null}, 0);
 
 // Check whether all tests actually returned
 assert.notEqual(0, returns);
-process.addListener('exit', function() {
+process.on('exit', function() {
   assert.equal(0, returns);
 });

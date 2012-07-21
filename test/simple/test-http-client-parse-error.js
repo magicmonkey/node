@@ -31,29 +31,30 @@ var srv = net.createServer(function(c) {
 
   console.log('connection');
 
-  c.addListener('end', function() { c.end(); });
+  c.on('end', function() { c.end(); });
 });
 
 var parseError = false;
 
 srv.listen(common.PORT, '127.0.0.1', function() {
   var req = http.request({
-    host:   '127.0.0.1',
-    port:   common.PORT,
+    host: '127.0.0.1',
+    port: common.PORT,
     method: 'GET',
-    path:   '/'});
+    path: '/'});
   req.end();
 
   req.on('error', function(e) {
     console.log('got error from client');
     srv.close();
     assert.ok(e.message.indexOf('Parse Error') >= 0);
+    assert.equal(e.code, 'HPE_INVALID_CONSTANT');
     parseError = true;
   });
 });
 
 
-process.addListener('exit', function() {
+process.on('exit', function() {
   assert.ok(parseError);
 });
 

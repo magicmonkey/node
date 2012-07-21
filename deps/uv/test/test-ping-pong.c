@@ -138,6 +138,10 @@ static void pinger_on_connect(uv_connect_t *req, int status) {
 
   ASSERT(status == 0);
 
+  ASSERT(uv_is_readable(req->handle));
+  ASSERT(uv_is_writable(req->handle));
+  ASSERT(!uv_is_closing((uv_handle_t *)req->handle));
+
   pinger_write_ping(pinger);
 
   uv_read_start((uv_stream_t*)(req->handle), alloc_cb, pinger_read_cb);
@@ -154,7 +158,7 @@ static void tcp_pinger_v6_new() {
   pinger->state = 0;
   pinger->pongs = 0;
 
-  /* Try to connec to the server and do NUM_PINGS ping-pongs. */
+  /* Try to connect to the server and do NUM_PINGS ping-pongs. */
   r = uv_tcp_init(uv_default_loop(), &pinger->stream.tcp);
   pinger->stream.tcp.data = pinger;
   ASSERT(!r);
@@ -179,7 +183,7 @@ static void tcp_pinger_new() {
   pinger->state = 0;
   pinger->pongs = 0;
 
-  /* Try to connec to the server and do NUM_PINGS ping-pongs. */
+  /* Try to connect to the server and do NUM_PINGS ping-pongs. */
   r = uv_tcp_init(uv_default_loop(), &pinger->stream.tcp);
   pinger->stream.tcp.data = pinger;
   ASSERT(!r);
@@ -203,17 +207,16 @@ static void pipe_pinger_new() {
   pinger->state = 0;
   pinger->pongs = 0;
 
-  /* Try to connec to the server and do NUM_PINGS ping-pongs. */
-  r = uv_pipe_init(uv_default_loop(), &pinger->stream.pipe);
+  /* Try to connect to the server and do NUM_PINGS ping-pongs. */
+  r = uv_pipe_init(uv_default_loop(), &pinger->stream.pipe, 0);
   pinger->stream.pipe.data = pinger;
   ASSERT(!r);
 
   /* We are never doing multiple reads/connects at a time anyway. */
   /* so these handles can be pre-initialized. */
 
-  r = uv_pipe_connect(&pinger->connect_req, &pinger->stream.pipe, TEST_PIPENAME,
+  uv_pipe_connect(&pinger->connect_req, &pinger->stream.pipe, TEST_PIPENAME,
       pinger_on_connect);
-  ASSERT(!r);
 
   /* Synchronous connect callbacks are not allowed. */
   ASSERT(pinger_on_connect_count == 0);

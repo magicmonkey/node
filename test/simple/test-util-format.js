@@ -19,7 +19,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// libuv-broken
+
 
 
 var common = require('../common');
@@ -58,4 +58,5 @@ assert.equal(util.format('%s:%s', undefined), 'undefined:%s');
 assert.equal(util.format('%s:%s', 'foo'), 'foo:%s');
 assert.equal(util.format('%s:%s', 'foo', 'bar'), 'foo:bar');
 assert.equal(util.format('%s:%s', 'foo', 'bar', 'baz'), 'foo:bar baz');
-
+assert.equal(util.format('%%%s%%', 'hi'), '%hi%');
+assert.equal(util.format('%%%s%%%%', 'hi'), '%hi%%');
